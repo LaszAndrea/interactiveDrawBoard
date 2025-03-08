@@ -1,0 +1,46 @@
+const WebSocket = require('ws');
+
+const server = new WebSocket.Server({ port: 8080 });
+
+let clients = new Set();
+let drawingHistory = []; // Store all the drawing actions
+
+server.on('connection', (ws) => {
+    console.log('New client connected');
+    clients.add(ws);
+
+    // Send the drawing history to the newly connected client
+    ws.send(JSON.stringify({ type: 'history', data: drawingHistory }));
+
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+
+        const parsedMessage = JSON.parse(message);
+        
+        // If the message is drawing data (not initialization)
+        if (parsedMessage.type === 'draw') {
+            // Store the drawing data for history
+            drawingHistory.push(parsedMessage.data); // Add the drawing data to history
+
+            // Broadcast the drawing data to all other connected clients
+            clients.forEach(client => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({ type: 'draw', data: parsedMessage.data }));
+                }
+            });
+        }
+
+        // Optionally handle other types (like init) here if needed
+    });
+
+    ws.on('close', () => {
+        console.log('Client disconnected');
+        clients.delete(ws);
+    });
+
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+    });
+});
+
+console.log('WebSocket server running on ws://localhost:8080');
