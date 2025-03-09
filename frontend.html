@@ -1,163 +1,407 @@
+<!--a fill visszatörlése még bugos, az előző műveletet törli vissza, ami nem fill volt-->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Drawing Board</title>
-    <style>
-        body { text-align: center; }
-        canvas { border: 1px solid black; cursor: crosshair; }
-        .toolbar { margin: 10px; display: flex; justify-content: center; gap: 10px; }
-        .tool-option, .color-option { width: 30px; height: 30px; display: inline-block; cursor: pointer; border: 1px solid black; text-align: center; line-height: 30px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Drawing Board</title>
+  <style>
+    body {
+      text-align: center;
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .main-content {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      width: 90%;
+      max-width: 1200px;
+      gap: 20px;
+    }
+    .drawing-area {
+      flex: 3;
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    /* Függőleges toolbar a canvas bal oldalán */
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: white;
+      padding: 10px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .tool-option,
+    .color-option {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 8px;
+      transition: 0.3s;
+    }
+    .tool-option {
+      background: #ddd;
+    }
+    .tool-option:hover,
+    .color-option:hover {
+      background: #bbb;
+    }
+    .color-option {
+      border: 2px solid #ddd;
+    }
+    canvas {
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      cursor: crosshair;
+      /* A canvas méretét az attribútumok határozzák meg */
+    }
+    .chat {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      padding: 10px;
+      height: 500px;
+    }
+    #chatMessages {
+      width: 100%;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: flex-start;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+    .chat-footer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #chatInput {
+      width: 70%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+    .message {
+      padding: 10px;
+      border-radius: 12px;
+      max-width: 60%;
+      display: inline-block;
+      word-wrap: break-word;
+      line-height: 1.4;
+    }
+    .my-message {
+      background-color: #dcf8c6;
+      align-self: flex-end;
+    }
+    .other-message {
+      background-color: #f1f0f0;
+      align-self: flex-start;
+    }
+  </style>
 </head>
 <body>
+  <div class="container">
     <h1>Interactive Drawing Board</h1>
-    <div class="toolbar">
-        <div class="color-option" style="background-color: black;" data-color="black"></div>
-        <div class="color-option" style="background-color: red;" data-color="red"></div>
-        <div class="color-option" style="background-color: blue;" data-color="blue"></div>
-        <div class="color-option" style="background-color: green;" data-color="green"></div>
-        <div class="tool-option" id="eraser">E</div>
-        <div class="tool-option" id="clear">X</div>
-        <div class="tool-option" id="fill">F</div>
-        <div class="tool-option" id="brush">B</div>
-        <div class="tool-option" id="undo">⟲</div>
+    <div class="main-content">
+      <div class="drawing-area">
+        <div class="toolbar">
+          <div class="color-option" style="background-color: black;" data-color="black"></div>
+          <div class="color-option" style="background-color: red;" data-color="red"></div>
+          <div class="color-option" style="background-color: blue;" data-color="blue"></div>
+          <div class="color-option" style="background-color: green;" data-color="green"></div>
+          <div class="tool-option" id="eraser">🧽</div>
+          <div class="tool-option" id="clear">🗑️</div>
+          <div class="tool-option" id="undo">⟲</div>
+          <div class="tool-option" id="fillTool">🧺</div>
+          <div class="tool-option" id="saveImage">💾</div>
+        </div>
+        <canvas id="drawingBoard" width="800" height="520"></canvas>
+      </div>
+      <div class="chat">
+        <h2>Chat</h2>
+        <div id="chatMessages">
+        </div>
+        <div class="chat-footer">
+
+        <input type="text" id="chatInput" placeholder="Írj üzenetet...">
+        </div>
+      </div>
     </div>
-    <canvas id="drawingBoard" width="800" height="500"></canvas>
-    <script>
-        const canvas = document.getElementById("drawingBoard");
-const ctx = canvas.getContext("2d");
-const socket = new WebSocket("ws://localhost:8080");
+  </div>
+  <script>
+    const canvas = document.getElementById("drawingBoard");
+    const ctx = canvas.getContext("2d");
+    const socket = new WebSocket("ws://localhost:8080");
 
-let drawing = false;
-let color = "black";
-let lastX = null, lastY = null;
-let tool = "brush";
-let history = [];
-let currentStroke = [];
+    let drawing = false;
+    let color = "black";
+    let lastX = null, lastY = null;
+    let history = [];
+    let currentStroke = null;
+    let clientColor = null;
+    let remoteStrokes = {};
+    let fillToolActive = false; // Fill tool állapota
 
-document.querySelectorAll(".color-option").forEach(option => {
-    option.addEventListener("click", (event) => {
+    // Színválasztás
+    document.querySelectorAll(".color-option").forEach((option) => {
+      option.addEventListener("click", (event) => {
         color = event.target.getAttribute("data-color");
-        tool = "brush";
+      });
     });
-});
 
-document.getElementById("eraser").addEventListener("click", () => {
-    color = "white"; // Eraser uses white color
-    tool = "eraser";
-});
+    // Eraser
+    document.getElementById("eraser").addEventListener("click", () => {
+      color = "white";
+    });
 
-document.getElementById("clear").addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    socket.send(JSON.stringify({ type: 'clear' }));
-    history = [];
-});
+    // Törlés
+    document.getElementById("clear").addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      socket.send(JSON.stringify({ type: "clear" }));
+      history = [];
+    });
 
-document.getElementById("undo").addEventListener("click", () => {
-    if (history.length > 0) {
-        socket.send(JSON.stringify({ type: 'undo' }));
-        history.pop();
+    // Undo
+    document.getElementById("undo").addEventListener("click", () => {
+      if (history.length > 0) {
+        const lastStroke = history.pop();
+        socket.send(JSON.stringify({ type: "undo", data: { strokeId: lastStroke.id } }));
         redrawCanvas();
-    }
-});
+      }
+    });
 
-canvas.addEventListener("mousedown", (event) => {
-    drawing = true;
-    lastX = event.offsetX;
-    lastY = event.offsetY;
-    currentStroke = [];
-});
+    // Fill tool aktiválása
+    document.getElementById("fillTool").addEventListener("click", () => {
+      fillToolActive = true;
+      document.getElementById("fillTool").style.backgroundColor = "#bbb";
+    });
 
-canvas.addEventListener("mouseup", () => {
-    drawing = false;
-    if (currentStroke.length > 0) {
+    // Mentés gomb
+    document.getElementById("saveImage").addEventListener("click", () => {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext("2d");
+      tempCtx.fillStyle = "white";
+      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempCtx.drawImage(canvas, 0, 0);
+      const link = document.createElement("a");
+      link.href = tempCanvas.toDataURL("image/jpeg", 1.0);
+      link.download = "drawing.jpg";
+      link.click();
+    });
+
+    // Chat küldés
+    document.getElementById("chatInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+
+        const message = document.getElementById("chatInput").value;
+      if (message.trim()) {
+        const chatMessage = {
+          type: "chat",
+          data: { message: message }
+        };
+        const chatMessages = document.getElementById("chatMessages");
+        const newMessage = document.createElement("div");
+        newMessage.classList.add("message");
+        newMessage.classList.add("my-message");
+        newMessage.textContent = message;
+        chatMessages.appendChild(newMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        socket.send(JSON.stringify(chatMessage));
+        document.getElementById("chatInput").value = "";
+      }}
+    });
+
+    // Egér események a rajzoláshoz
+    canvas.addEventListener("mousedown", (event) => {
+      // Fill tool esetén flood fill és üzenetküldés a szervernek
+      if (fillToolActive) {
+        const x = event.offsetX;
+        const y = event.offsetY;
+        floodFill(canvas, x, y, color);
+        socket.send(JSON.stringify({ type: "fill", data: { x: x, y: y, color: color } }));
+        fillToolActive = false;
+        document.getElementById("fillTool").style.backgroundColor = "#ddd";
+        return;
+      }
+      drawing = true;
+      lastX = event.offsetX;
+      lastY = event.offsetY;
+      currentStroke = { id: Date.now() + "-" + Math.random().toString(36).substr(2, 5), segments: [] };
+    });
+
+    canvas.addEventListener("mousemove", (event) => {
+      if (!drawing) return;
+      const x = event.offsetX;
+      const y = event.offsetY;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = color === "white" ? 10 : 2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      const segment = { lastX, lastY, x, y, color };
+      currentStroke.segments.push(segment);
+      socket.send(JSON.stringify({ type: "draw", data: { strokeId: currentStroke.id, segment } }));
+      lastX = x;
+      lastY = y;
+    });
+
+    canvas.addEventListener("mouseup", () => {
+      drawing = false;
+      if (currentStroke && currentStroke.segments.length > 0) {
         history.push(currentStroke);
-        socket.send(JSON.stringify({ type: 'draw', data: currentStroke }));
-    }
-});
-
-canvas.addEventListener("mousemove", draw);
-
-function draw(event) {
-    if (!drawing || tool === "fill") return;
-    const x = event.offsetX;
-    const y = event.offsetY;
-    
-    ctx.strokeStyle = color;
-    ctx.lineWidth = tool === "eraser" ? 10 : 2;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    
-    currentStroke.push({ lastX, lastY, x, y, color });
-    lastX = x;
-    lastY = y;
-}
-
-function redrawCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    history.forEach(stroke => {
-        stroke.forEach(({ lastX, lastY, x, y, color }) => {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.lineCap = "round";
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        });
+        socket.send(JSON.stringify({ type: "finalize", data: { stroke: currentStroke } }));
+        currentStroke = null;
+      }
     });
-}
 
-socket.onmessage = (event) => {
-    const { type, data } = JSON.parse(event.data);
-    if (type === 'history') {
-        data.forEach(stroke => {
-            history.push(stroke);
-            stroke.forEach(({ lastX, lastY, x, y, color }) => {
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.lineCap = "round";
-                ctx.beginPath();
-                ctx.moveTo(lastX, lastY);
-                ctx.lineTo(x, y);
-                ctx.stroke();
-            });
+    function redrawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      history.forEach((stroke) => {
+        stroke.segments.forEach((segment) => {
+          ctx.strokeStyle = segment.color;
+          ctx.lineWidth = segment.color === "white" ? 10 : 2;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(segment.lastX, segment.lastY);
+          ctx.lineTo(segment.x, segment.y);
+          ctx.stroke();
         });
-    } else if (type === 'draw') {
-        history.push(data);
-        data.forEach(({ lastX, lastY, x, y, color }) => {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.lineCap = "round";
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        });
-    } else if (type === 'clear') {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        history = [];
-    } else if (type === 'undo') {
-        history.pop();
-        redrawCanvas();
-    } else if (type === 'erase') {
-        // Handle the erase action (erase a part of the drawing)
-        const { lastX, lastY, x, y, color } = data;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 10;
+      });
+    }
+
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "color") {
+        clientColor = msg.data;
+      } else if (msg.type === "chat") {
+        displayMessage(msg.data.message, msg.data.color);
+      }
+      if (msg.type === "draw") {
+        const { strokeId, segment } = msg.data;
+        ctx.strokeStyle = segment.color;
+        ctx.lineWidth = segment.color === "white" ? 10 : 2;
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
-        ctx.lineTo(x, y);
+        ctx.moveTo(segment.lastX, segment.lastY);
+        ctx.lineTo(segment.x, segment.y);
         ctx.stroke();
-    }
-};
+        if (!remoteStrokes[strokeId]) {
+          remoteStrokes[strokeId] = { id: strokeId, segments: [] };
+        }
+        remoteStrokes[strokeId].segments.push(segment);
+      } else if (msg.type === "finalize") {
+        const stroke = msg.data.stroke;
+        history.push(stroke);
+        delete remoteStrokes[stroke.id];
+      } else if (msg.type === "clear") {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        history = [];
+      } else if (msg.type === "undo") {
+        const strokeId = msg.data.strokeId;
+        history = history.filter(stroke => stroke.id !== strokeId);
+        redrawCanvas();
+      } else if (msg.type === "fill") {
+        const { x, y, color } = msg.data;
+        floodFill(canvas, x, y, color);
+      }
+      function displayMessage(message, color) {
+        const chatMessages = document.getElementById("chatMessages");
+        const newMessage = document.createElement("div");
+        newMessage.classList.add("message");
+        newMessage.style.backgroundColor = color;
+        newMessage.textContent = message;
+        chatMessages.appendChild(newMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    };
 
-    </script>
+    // Flood fill algoritmus
+    function floodFill(canvas, startX, startY, fillColor) {
+      const ctx = canvas.getContext("2d");
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      const width = canvas.width;
+      const height = canvas.height;
+
+      const stack = [];
+      const startPos = (startY * width + startX) * 4;
+      const startColor = [data[startPos], data[startPos+1], data[startPos+2], data[startPos+3]];
+      const fillColorComponents = parseColor(fillColor);
+
+      if (colorMatch(startColor, fillColorComponents)) return;
+      stack.push({x: startX, y: startY});
+
+      while(stack.length) {
+        const {x, y} = stack.pop();
+        const currentPos = (y * width + x) * 4;
+        const currentColor = [data[currentPos], data[currentPos+1], data[currentPos+2], data[currentPos+3]];
+        if (colorMatch(currentColor, startColor)) {
+          data[currentPos] = fillColorComponents[0];
+          data[currentPos+1] = fillColorComponents[1];
+          data[currentPos+2] = fillColorComponents[2];
+          data[currentPos+3] = fillColorComponents[3];
+
+          if (x > 0) stack.push({x: x - 1, y});
+          if (x < width - 1) stack.push({x: x + 1, y});
+          if (y > 0) stack.push({x, y: y - 1});
+          if (y < height - 1) stack.push({x, y: y + 1});
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    // Segédfüggvény a színparszoláshoz
+    function parseColor(colorStr) {
+      const tempDiv = document.createElement("div");
+      tempDiv.style.color = colorStr;
+      document.body.appendChild(tempDiv);
+      const computedColor = getComputedStyle(tempDiv).color;
+      document.body.removeChild(tempDiv);
+      const parts = computedColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      if (parts) {
+        const r = parseInt(parts[1]);
+        const g = parseInt(parts[2]);
+        const b = parseInt(parts[3]);
+        const a = parts[4] ? Math.floor(parseFloat(parts[4]) * 255) : 255;
+        return [r, g, b, a];
+      }
+      return [0, 0, 0, 255];
+    }
+
+    function colorMatch(a, b) {
+      return a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+    }
+  </script>
 </body>
 </html>
